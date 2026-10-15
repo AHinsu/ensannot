@@ -1,0 +1,27 @@
+Package: ensannot
+Type: Package
+Title: Ensembl Gene Annotation Without 'biomaRt'
+Version: 0.1.0
+Authors@R: c(
+    person(
+      "Ankit", "Hinsu",
+      email = "ahinsu@rvc.ac.uk",
+      role = c("aut", "cre")
+    )
+  )
+Description: Builds a local, reusable gene annotation table directly from
+    the 'Ensembl' FTP site (core database dump files, read as plain
+    tab-delimited text) for a chosen species, assembly and release, and caches
+    it for reuse. The table holds Ensembl gene IDs with chromosome, start, end,
+    strand, gene symbol, description, synonyms, biotype, 'Entrez' IDs and
+    transcript IDs, using 'biomaRt' attribute names. It can then annotate user
+    tables by Ensembl gene ID, by genomic region (all overlapping genes per
+    region), or by locus (overlapping or closest genes within a given distance).
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.0.0)
+Imports: data.table, tools, utils
+Suggests: R.utils, testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
