@@ -516,5 +516,5 @@ Bug reports and suggestions are welcome via
 
 ## Citation
 
-If use ensannot in your work, please cite the tools as: 
+If you use `ensannot` in your work, please cite the package as: 
 Ankit Hinsu. (2026). AHinsu/ensannot: ensannot v0.1.0 (Version v0.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23688272
