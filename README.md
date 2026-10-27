@@ -500,19 +500,6 @@ Key arguments of the annotate functions:
 
 ## Development
 
-```r
-# install development dependencies
-install.packages(c("devtools", "roxygen2", "testthat"))
-
-devtools::document()   # regenerate NAMESPACE and man/ from the roxygen comments
-devtools::load_all()   # load the package for interactive work
-devtools::check()      # R CMD check
-```
-
-Documentation lives in the roxygen comments in `R/ensannot.R` (markdown
-enabled). Examples use `ens_example_annotation()`, so they run offline. Network
-examples are wrapped in `\dontrun{}`.
-
 Bug reports and suggestions are welcome via
 [GitHub issues](https://github.com/ahinsu/ensannot/issues).
 
@@ -526,3 +513,8 @@ Bug reports and suggestions are welcome via
   please cite Ensembl when you use annotations built with this package.
 - `ensannot` is an independent tool and is not affiliated with or endorsed by
   Ensembl or EMBL-EBI.
+
+## Citation
+
+If use ensannot in your work, please cite the tools as: 
+Ankit Hinsu. (2026). AHinsu/ensannot: ensannot v0.1.0 (Version v0.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23688272
