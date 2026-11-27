@@ -77,7 +77,9 @@ folder listing of
 \strong{What is downloaded and parsed.} The table definition file plus the tables
 \code{gene}, \code{transcript}, \code{translation}, \code{seq_region}, \code{coord_system},
 \code{seq_region_attrib}, \code{attrib_type}, \code{xref}, \code{external_db},
-\code{external_synonym} and \code{object_xref}. Column positions are read from the
+\code{external_synonym} and \code{object_xref}. The table \code{transcript_attrib} (which
+holds the MANE flags) is downloaded only if \code{attrib_type} contains the MANE
+codes, i.e. for human GRCh38 builds. Column positions are read from the
 table definitions, so the parser adapts to schema changes between releases.
 
 \strong{How the columns are derived.}
@@ -92,6 +94,12 @@ can still get synonyms (e.g. from Entrez or other external databases).
 \item \code{entrezgene_id}: \code{EntrezGene} references linked to the gene, its
 transcripts or its translations.
 \item \code{ensembl_transcript_id}: all current transcripts of the gene.
+\item \code{transcript_mane_select}, \code{ensembl_transcript_mane_select} (and the
+\verb{_plus_clinical} pair): MANE transcripts, from the transcript attributes
+with codes \code{MANE_Select} / \code{MANE_Plus_Clinical} (looked up by code). The
+attribute value is the RefSeq transcript ID; the Ensembl ID is that
+transcript's stable ID. MANE exists for human GRCh38 only; for other
+species these columns are \code{NA}.
 \item \code{custom_gene_name}: symbol, else first synonym (alphabetical), else
 the Ensembl gene ID.
 }

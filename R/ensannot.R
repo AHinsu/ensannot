@@ -67,13 +67,16 @@ utils::globalVariables(c(
   "ge", "gene_id", "gi", "gs", "internal_id", "is_current", "mind", "name",
   "qe", "qi", "qs", "rel", "seq_region_id", "seq_region_start", "seq_region_end",
   "seq_region_strand", "start_position", "stable_id", "synonym", "transcript_id",
-  "translation_id", "xref_id"
+  "translation_id", "value", "xref_id"
 ))
 
 .ENS_FTP        <- "https://ftp.ensembl.org/pub"
 .ENS_ATTR_COLS  <- c("ensembl_gene_id", "external_gene_name", "custom_gene_name",
                      "description", "external_synonym", "gene_biotype",
                      "entrezgene_id", "ensembl_transcript_id")
+.ENS_MANE_COLS  <- c("transcript_mane_select", "ensembl_transcript_mane_select",
+                     "transcript_mane_plus_clinical",
+                     "ensembl_transcript_mane_plus_clinical")
 .ENS_COORD_COLS <- c("chromosome_name", "start_position", "end_position", "strand")
 
 # ------------------------------------------------------------------ utilities
@@ -327,9 +330,18 @@ ens_resolve_db_url <- function(species, release = "current", assembly = NULL,
 #'   \item{`gene_biotype`}{e.g. `protein_coding`, `lncRNA`, `miRNA`.}
 #'   \item{`entrezgene_id`}{Entrez Gene ID(s), separated by `"; "`.}
 #'   \item{`ensembl_transcript_id`}{Transcript IDs, separated by `"; "`.}
+#'   \item{`transcript_mane_select`}{RefSeq ID (`NM_`/`NR_`) of the MANE Select
+#'     transcript of the gene, named as in biomaRt. Human GRCh38 only; `NA` for
+#'     other species and for genes without a MANE Select transcript.}
+#'   \item{`ensembl_transcript_mane_select`}{Ensembl transcript ID of the same
+#'     MANE Select transcript.}
+#'   \item{`transcript_mane_plus_clinical`, `ensembl_transcript_mane_plus_clinical`}{
+#'     The same pair for MANE Plus Clinical transcripts. A gene can have
+#'     several; they are joined with `"; "`, in the same order in both columns.}
 #' }
 #' Values that are multiple within one gene are joined with `"; "`. Missing
-#' values are `NA`.
+#' values are `NA`. The four MANE columns are not part of the default output of
+#' the annotate functions; request them with `add_cols`.
 #'
 #' @section `$meta`:
 #' A list: `species` (the `genus_species[_assembly]` part of the database
@@ -386,7 +398,11 @@ ens_example_annotation <- function() {
                            "protein_coding", "miRNA"),
     entrezgene_id      = c("101", "102", NA, "104", NA),
     ensembl_transcript_id = c("TOYT001; TOYT002", "TOYT003", "TOYT004",
-                              "TOYT005", "TOYT006")
+                              "TOYT005", "TOYT006"),
+    transcript_mane_select         = c("NM_TOY001.1", "NM_TOY002.1", NA, NA, NA),
+    ensembl_transcript_mane_select = c("TOYT001", "TOYT003", NA, NA, NA),
+    transcript_mane_plus_clinical         = c("NM_TOY009.1", NA, NA, NA, NA),
+    ensembl_transcript_mane_plus_clinical = c("TOYT002", NA, NA, NA, NA)
   )
   structure(list(
     genes = genes,
@@ -424,7 +440,9 @@ ens_example_annotation <- function() {
 #' **What is downloaded and parsed.** The table definition file plus the tables
 #' `gene`, `transcript`, `translation`, `seq_region`, `coord_system`,
 #' `seq_region_attrib`, `attrib_type`, `xref`, `external_db`,
-#' `external_synonym` and `object_xref`. Column positions are read from the
+#' `external_synonym` and `object_xref`. The table `transcript_attrib` (which
+#' holds the MANE flags) is downloaded only if `attrib_type` contains the MANE
+#' codes, i.e. for human GRCh38 builds. Column positions are read from the
 #' table definitions, so the parser adapts to schema changes between releases.
 #'
 #' **How the columns are derived.**
@@ -439,6 +457,12 @@ ens_example_annotation <- function() {
 #'   \item `entrezgene_id`: `EntrezGene` references linked to the gene, its
 #'     transcripts or its translations.
 #'   \item `ensembl_transcript_id`: all current transcripts of the gene.
+#'   \item `transcript_mane_select`, `ensembl_transcript_mane_select` (and the
+#'     `_plus_clinical` pair): MANE transcripts, from the transcript attributes
+#'     with codes `MANE_Select` / `MANE_Plus_Clinical` (looked up by code). The
+#'     attribute value is the RefSeq transcript ID; the Ensembl ID is that
+#'     transcript's stable ID. MANE exists for human GRCh38 only; for other
+#'     species these columns are `NA`.
 #'   \item `custom_gene_name`: symbol, else first synonym (alphabetical), else
 #'     the Ensembl gene ID.
 #' }
@@ -554,9 +578,9 @@ ens_build_annotation <- function(species = NULL, release = "current", assembly =
 
   sr <- rd("seq_region", c("seq_region_id", "name", "coord_system_id"))
   sr[, name := as.character(name)]
+  atype <- rd("attrib_type", c("attrib_type_id", "code"))   # also needed for MANE
   if (primary_only) {
     cs    <- rd("coord_system", c("coord_system_id", "name"))
-    atype <- rd("attrib_type", c("attrib_type_id", "code"))
     sra   <- rd("seq_region_attrib", c("seq_region_id", "attrib_type_id"))
     nonref_ids <- sra[attrib_type_id %in% atype[code == "non_ref", attrib_type_id], unique(seq_region_id)]
     lrg_cs     <- cs[tolower(name) == "lrg", coord_system_id]
@@ -628,6 +652,36 @@ ens_build_annotation <- function(species = NULL, release = "current", assembly =
   }
   rm(ox)
 
+  # --- MANE Select / MANE Plus Clinical (human GRCh38 only) -----------------
+  # Stored as transcript attributes with attrib_type codes "MANE_Select" and
+  # "MANE_Plus_Clinical"; the attribute value is the matching RefSeq transcript
+  # ID (NM_/NR_). The attribute ids are looked up by code (not hard-coded).
+  # The large transcript_attrib file is only downloaded if these codes exist,
+  # i.e. builds for other species/assemblies skip it and get NA columns.
+  gene[, (.ENS_MANE_COLS) := NA_character_]
+  mane_ids <- atype[code %in% c("MANE_Select", "MANE_Plus_Clinical")]
+  if (nrow(mane_ids)) {
+    .ens_download(paste0(ftp_url, "transcript_attrib.txt.gz"),
+                  file.path(raw_dir, "transcript_attrib.txt.gz"), verbose)
+    ta <- rd("transcript_attrib", c("transcript_id", "attrib_type_id", "value"))
+    ta <- ta[attrib_type_id %in% mane_ids$attrib_type_id & !is.na(value)]
+    if (nrow(ta)) {
+      ta[, code := mane_ids$code[match(attrib_type_id, mane_ids$attrib_type_id)]]
+      ta <- merge(ta, tr[, .(transcript_id, gene_id, stable_id)], by = "transcript_id")
+      setorder(ta, gene_id, code, stable_id)       # same transcript order in both columns
+      agg <- ta[, .(refseq  = paste(value, collapse = "; "),
+                    ensembl = paste(stable_id, collapse = "; ")), by = .(gene_id, code)]
+      sel <- agg[code == "MANE_Select"]
+      plc <- agg[code == "MANE_Plus_Clinical"]
+      gene[, transcript_mane_select := sel$refseq[match(internal_id, sel$gene_id)]]
+      gene[, ensembl_transcript_mane_select := sel$ensembl[match(internal_id, sel$gene_id)]]
+      gene[, transcript_mane_plus_clinical := plc$refseq[match(internal_id, plc$gene_id)]]
+      gene[, ensembl_transcript_mane_plus_clinical := plc$ensembl[match(internal_id, plc$gene_id)]]
+      rm(agg, sel, plc)
+    }
+    rm(ta)
+  }
+
   # --- custom gene name: symbol -> first synonym -> Ensembl gene ID ---------
   first_syn <- trimws(sub(";.*$", "", gene$external_synonym))
   gene[, custom_gene_name := fifelse(!is.na(external_gene_name), external_gene_name,
@@ -647,7 +701,11 @@ ens_build_annotation <- function(species = NULL, release = "current", assembly =
     external_synonym,
     gene_biotype   = biotype,
     entrezgene_id,
-    ensembl_transcript_id
+    ensembl_transcript_id,
+    transcript_mane_select,
+    ensembl_transcript_mane_select,
+    transcript_mane_plus_clinical,
+    ensembl_transcript_mane_plus_clinical
   )]
   genes[, .chr_num := suppressWarnings(as.integer(chromosome_name))]
   setorder(genes, .chr_num, chromosome_name, start_position, na.last = TRUE)  # 1..22, X, Y, MT, scaffolds
@@ -818,10 +876,17 @@ print.ens_annot <- function(x, ...) {
   a
 }
 
-.check_cols <- function(annot, cols) {
+# Expands the keyword "default" to the function's default columns (at the
+# position where it appears), removes duplicates, and checks that all columns exist.
+.check_cols <- function(annot, cols, default = NULL) {
+  if (!is.null(default))
+    cols <- unlist(lapply(cols, function(cn) if (identical(cn, "default")) default else cn))
+  cols <- unique(cols)
   bad <- setdiff(cols, names(annot$genes))
   if (length(bad)) stop("Unknown annotation column(s): ", paste(bad, collapse = ", "),
-                        "\nAvailable: ", paste(names(annot$genes), collapse = ", "), call. = FALSE)
+                        "\nAvailable: ", paste(names(annot$genes), collapse = ", "),
+                        "\n(\"default\" is also accepted: it stands for the default columns)",
+                        call. = FALSE)
   cols
 }
 
@@ -907,11 +972,19 @@ print.ens_annot <- function(x, ...) {
 #' @param annot An [ens_annot] object from [ens_build_annotation()] /
 #'   [ens_load_annotation()], or the path to a saved `.rds` / `.tsv(.gz)`.
 #' @param id_col Name of the column of `x` holding Ensembl gene IDs.
-#' @param add_cols Annotation columns to append. Default: everything except
-#'   `ensembl_gene_id` (so `external_gene_name`, `custom_gene_name`,
-#'   `description`, `external_synonym`, `gene_biotype`, `entrezgene_id`,
+#' @param add_cols Annotation columns to append. Only the columns listed here
+#'   are returned. The keyword `"default"` stands for the default set, so you
+#'   do not have to type it out: `add_cols = "default"` (the default value) gives
+#'   `external_gene_name`, `custom_gene_name`, `description`,
+#'   `external_synonym`, `gene_biotype`, `entrezgene_id`,
 #'   `ensembl_transcript_id`, `chromosome_name`, `start_position`,
-#'   `end_position`, `strand`). See [ens_annot] for the full list.
+#'   `end_position`, `strand`; and `add_cols = c("default",
+#'   "transcript_mane_select")` gives the default set plus extra columns (a
+#'   column listed twice is returned once). The MANE columns
+#'   (`transcript_mane_select`, `ensembl_transcript_mane_select`,
+#'   `transcript_mane_plus_clinical`, `ensembl_transcript_mane_plus_clinical`)
+#'   are not part of `"default"`; add them explicitly. See [ens_annot] for the
+#'   full list of columns.
 #' @param strip_version Remove a trailing `.<number>` from the input IDs before
 #'   matching.
 #' @param out_file Optional path; if given, the result is also written there as
@@ -932,13 +1005,26 @@ print.ens_annot <- function(x, ...) {
 #' ens_annotate_ids(x, ann, id_col = "gene",
 #'                  add_cols = c("custom_gene_name", "gene_biotype"))
 #'
+#' # the keyword "default" stands for the default columns: add extras to them
+#' ens_annotate_ids(x, ann, id_col = "gene",
+#'                  add_cols = c("default", "transcript_mane_select"))
+#'
+#' # MANE Select / Plus Clinical transcripts are not in the default output;
+#' # request them (real values for human GRCh38 builds, NA for other species)
+#' ens_annotate_ids(x, ann, id_col = "gene",
+#'                  add_cols = c("transcript_mane_select",
+#'                               "ensembl_transcript_mane_select",
+#'                               "transcript_mane_plus_clinical",
+#'                               "ensembl_transcript_mane_plus_clinical"))
+#'
 #' # write to file as well
 #' ens_annotate_ids(x, ann, "gene", out_file = tempfile(fileext = ".tsv"))
 #' @export
 ens_annotate_ids <- function(x, annot, id_col,
-                             add_cols = c(.ENS_ATTR_COLS[-1], .ENS_COORD_COLS),
+                             add_cols = "default",
                              strip_version = TRUE, out_file = NULL) {
-  x <- .as_input(x); annot <- .as_annot(annot); add_cols <- .check_cols(annot, add_cols)
+  x <- .as_input(x); annot <- .as_annot(annot)
+  add_cols <- .check_cols(annot, add_cols, default = c(.ENS_ATTR_COLS[-1], .ENS_COORD_COLS))
   if (!id_col %in% names(x)) stop("Column '", id_col, "' not found in input.", call. = FALSE)
   ids <- trimws(as.character(x[[id_col]]))
   if (strip_version) ids <- sub("\\.[0-9]+$", "", ids)
@@ -995,11 +1081,16 @@ ens_annotate_ids <- function(x, annot, id_col,
 #' @param annot An [ens_annot] object, or the path to a saved annotation.
 #' @param chr_col,start_col,end_col Names of the columns of `x` holding
 #'   chromosome, region start and region end.
-#' @param add_cols Annotation columns to report. Default: `ensembl_gene_id`,
-#'   `external_gene_name`, `custom_gene_name`, `description`,
-#'   `external_synonym`, `gene_biotype`, `entrezgene_id`,
-#'   `ensembl_transcript_id`. Gene coordinates (`chromosome_name`,
-#'   `start_position`, `end_position`, `strand`) can be added here too.
+#' @param add_cols Annotation columns to report. Only the columns listed are
+#'   returned. The keyword `"default"` stands for the default set:
+#'   `ensembl_gene_id`, `external_gene_name`, `custom_gene_name`,
+#'   `description`, `external_synonym`, `gene_biotype`, `entrezgene_id`,
+#'   `ensembl_transcript_id`. Use it to extend the defaults without typing them
+#'   out, e.g. `add_cols = c("default", "transcript_mane_select",
+#'   "start_position")` (a column listed twice is returned once). The MANE
+#'   columns (see [ens_annot]) and the gene coordinates (`chromosome_name`,
+#'   `start_position`, `end_position`, `strand`) are not part of `"default"`;
+#'   add them explicitly.
 #' @param min_overlap Minimum overlap in bp for a gene to count (default `1`,
 #'   i.e. any overlap).
 #' @param sep Separator between genes in the output (default `"; "`).
@@ -1068,6 +1159,10 @@ ens_annotate_ids <- function(x, annot, id_col,
 #'                      add_cols = c("custom_gene_name", "external_synonym"),
 #'                      min_overlap = 1000, na_string = "NA")$regions
 #'
+#' # default columns plus extras, without typing out the defaults
+#' ens_annotate_regions(regions, ann, "chr", "start", "end",
+#'                      add_cols = c("default", "transcript_mane_select"))$regions
+#'
 #' # include gene coordinates in the regions table, change separators
 #' ens_annotate_regions(regions, ann, "chr", "start", "end",
 #'                      add_cols = c("custom_gene_name", "start_position",
@@ -1075,11 +1170,12 @@ ens_annotate_ids <- function(x, annot, id_col,
 #'                      sep = " | ")$regions
 #' @export
 ens_annotate_regions <- function(x, annot, chr_col, start_col, end_col,
-                                 add_cols = .ENS_ATTR_COLS, min_overlap = 1,
+                                 add_cols = "default", min_overlap = 1,
                                  sep = "; ", inner_sep = ",", na_string = NULL,
                                  gene_args = list(), region_rows = TRUE,
                                  out_file = NULL) {
-  x <- .as_input(x); annot <- .as_annot(annot); add_cols <- .check_cols(annot, add_cols)
+  x <- .as_input(x); annot <- .as_annot(annot)
+  add_cols <- .check_cols(annot, add_cols, default = .ENS_ATTR_COLS)
   q  <- .query_table(x, chr_col, start_col, end_col)
   ov <- .overlap_pairs(q, annot$genes, pad = 0)
   gs <- as.numeric(annot$genes$start_position[ov$gi]); ge <- as.numeric(annot$genes$end_position[ov$gi])
@@ -1163,8 +1259,9 @@ ens_annotate_regions <- function(x, annot, chr_col, start_col, end_col,
 #'   locus. Default `0` (overlap only).
 #' @param nonoverlap `"closest"` (default) reports the nearest gene(s) when
 #'   nothing overlaps; `"all_within"` reports all genes within `max_dist`.
-#' @param add_cols Annotation columns to report; same default and options as
-#'   in [ens_annotate_regions()].
+#' @param add_cols Annotation columns to report; same keyword `"default"` and
+#'   options as in [ens_annotate_regions()], e.g.
+#'   `add_cols = c("default", "transcript_mane_select")`.
 #' @param sep Separator between genes in the output (default `"; "`).
 #' @param inner_sep Separator between multiple values belonging to one gene
 #'   (default `","`).
@@ -1196,6 +1293,10 @@ ens_annotate_regions <- function(x, annot, chr_col, start_col, end_col,
 #'                   nonoverlap = "all_within",
 #'                   add_cols = c("custom_gene_name", "gene_biotype"))
 #'
+#' # default columns plus MANE Select, without typing out the defaults
+#' ens_annotate_loci(loci, ann, "chr", "pos", max_dist = 1000,
+#'                   add_cols = c("default", "transcript_mane_select"))
+#'
 #' # loci that are intervals
 #' loci2 <- data.frame(chr = "1", from = 4900, to = 6100)
 #' ens_annotate_loci(loci2, ann, "chr", "from", end_col = "to",
@@ -1203,11 +1304,12 @@ ens_annotate_regions <- function(x, annot, chr_col, start_col, end_col,
 #' @export
 ens_annotate_loci <- function(x, annot, chr_col, pos_col, end_col = NULL, max_dist = 0,
                               nonoverlap = c("closest", "all_within"),
-                              add_cols = .ENS_ATTR_COLS,
+                              add_cols = "default",
                               sep = "; ", inner_sep = ",", na_string = NULL,
                               out_file = NULL) {
   nonoverlap <- match.arg(nonoverlap)
-  x <- .as_input(x); annot <- .as_annot(annot); add_cols <- .check_cols(annot, add_cols)
+  x <- .as_input(x); annot <- .as_annot(annot)
+  add_cols <- .check_cols(annot, add_cols, default = .ENS_ATTR_COLS)
   q  <- .query_table(x, chr_col, pos_col, if (is.null(end_col)) pos_col else end_col)
   g  <- annot$genes
 
@@ -1234,4 +1336,3 @@ ens_annotate_loci <- function(x, annot, chr_col, pos_col, end_col = NULL, max_di
   res <- cbind(data.table(n_genes = n_genes), res)
   .finish(x, res, out_file)
 }
-

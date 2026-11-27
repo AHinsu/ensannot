@@ -8,7 +8,7 @@ ens_annotate_ids(
   x,
   annot,
   id_col,
-  add_cols = c(.ENS_ATTR_COLS[-1], .ENS_COORD_COLS),
+  add_cols = "default",
   strip_version = TRUE,
   out_file = NULL
 )
@@ -22,11 +22,18 @@ delimited file (read with \code{\link[data.table:fread]{data.table::fread()}}).}
 
 \item{id_col}{Name of the column of \code{x} holding Ensembl gene IDs.}
 
-\item{add_cols}{Annotation columns to append. Default: everything except
-\code{ensembl_gene_id} (so \code{external_gene_name}, \code{custom_gene_name},
-\code{description}, \code{external_synonym}, \code{gene_biotype}, \code{entrezgene_id},
+\item{add_cols}{Annotation columns to append. Only the columns listed here
+are returned. The keyword \code{"default"} stands for the default set, so you
+do not have to type it out: \code{add_cols = "default"} (the default value) gives
+\code{external_gene_name}, \code{custom_gene_name}, \code{description},
+\code{external_synonym}, \code{gene_biotype}, \code{entrezgene_id},
 \code{ensembl_transcript_id}, \code{chromosome_name}, \code{start_position},
-\code{end_position}, \code{strand}). See \link{ens_annot} for the full list.}
+\code{end_position}, \code{strand}; and \code{add_cols = c("default", "transcript_mane_select")} gives the default set plus extra columns (a
+column listed twice is returned once). The MANE columns
+(\code{transcript_mane_select}, \code{ensembl_transcript_mane_select},
+\code{transcript_mane_plus_clinical}, \code{ensembl_transcript_mane_plus_clinical})
+are not part of \code{"default"}; add them explicitly. See \link{ens_annot} for the
+full list of columns.}
 
 \item{strip_version}{Remove a trailing \verb{.<number>} from the input IDs before
 matching.}
@@ -64,6 +71,18 @@ ens_annotate_ids(x, ann, id_col = "gene")
 # only selected columns
 ens_annotate_ids(x, ann, id_col = "gene",
                  add_cols = c("custom_gene_name", "gene_biotype"))
+
+# the keyword "default" stands for the default columns: add extras to them
+ens_annotate_ids(x, ann, id_col = "gene",
+                 add_cols = c("default", "transcript_mane_select"))
+
+# MANE Select / Plus Clinical transcripts are not in the default output;
+# request them (real values for human GRCh38 builds, NA for other species)
+ens_annotate_ids(x, ann, id_col = "gene",
+                 add_cols = c("transcript_mane_select",
+                              "ensembl_transcript_mane_select",
+                              "transcript_mane_plus_clinical",
+                              "ensembl_transcript_mane_plus_clinical"))
 
 # write to file as well
 ens_annotate_ids(x, ann, "gene", out_file = tempfile(fileext = ".tsv"))
