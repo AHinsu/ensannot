@@ -30,9 +30,18 @@ the gene, separated by \code{"; "}.}
 \item{\code{gene_biotype}}{e.g. \code{protein_coding}, \code{lncRNA}, \code{miRNA}.}
 \item{\code{entrezgene_id}}{Entrez Gene ID(s), separated by \code{"; "}.}
 \item{\code{ensembl_transcript_id}}{Transcript IDs, separated by \code{"; "}.}
+\item{\code{transcript_mane_select}}{RefSeq ID (\code{NM_}/\code{NR_}) of the MANE Select
+transcript of the gene, named as in biomaRt. Human GRCh38 only; \code{NA} for
+other species and for genes without a MANE Select transcript.}
+\item{\code{ensembl_transcript_mane_select}}{Ensembl transcript ID of the same
+MANE Select transcript.}
+\item{\code{transcript_mane_plus_clinical}, \code{ensembl_transcript_mane_plus_clinical}}{
+The same pair for MANE Plus Clinical transcripts. A gene can have
+several; they are joined with \code{"; "}, in the same order in both columns.}
 }
 Values that are multiple within one gene are joined with \code{"; "}. Missing
-values are \code{NA}.
+values are \code{NA}. The four MANE columns are not part of the default output of
+the annotate functions; request them with \code{add_cols}.
 }
 
 \section{\verb{$meta}}{

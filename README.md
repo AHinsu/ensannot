@@ -413,6 +413,11 @@ attribute names:
 | `gene_biotype` | e.g. `protein_coding`, `lncRNA`, `miRNA` |
 | `entrezgene_id` | Entrez Gene ID(s), separated by `"; "` |
 | `ensembl_transcript_id` | Transcript IDs, separated by `"; "` |
+| `transcript_mane_select` | RefSeq ID (NM_/NR_) of the MANE Select transcript; human GRCh38 only (NA otherwise). Not in the default output |
+| `ensembl_transcript_mane_select` | Ensembl ID of the same transcript. Not in the default output |
+| `transcript_mane_plus_clinical`, `ensembl_transcript_mane_plus_clinical` | Same pair for MANE Plus Clinical; several transcripts joined with `"; "`. Not in the default output |
+
+Non-default columns are requested through `add_cols`.
 
 Where the values come from:
 
@@ -451,7 +456,7 @@ Key arguments of the annotate functions:
 
 | Argument | Applies to | Meaning |
 |---|---|---|
-| `add_cols` | all | Which annotation columns to add |
+| `add_cols` | all | `add_cols = c("default", "transcript_mane_select")` returns the default columns plus the extras; `"default"` keyword can be used to encompass default set of columns. Any specific column name can be given to return only them or combined with `"default"` keyword to combine specific columns with default set of columns. |
 | `min_overlap` | regions | Minimum overlap (bp) for a gene to count |
 | `max_dist` | loci | Search distance (bp) when nothing overlaps |
 | `nonoverlap` | loci | `"closest"` (default) or `"all_within"` |
@@ -513,6 +518,10 @@ Bug reports and suggestions are welcome via
   please cite Ensembl when you use annotations built with this package.
 - `ensannot` is an independent tool and is not affiliated with or endorsed by
   Ensembl or EMBL-EBI.
+
+## Updates
+v 0.1.0 : Initial release
+v 0.1.1 : Support for MANE select transcript added
 
 ## Citation
 

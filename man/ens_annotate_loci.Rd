@@ -12,7 +12,7 @@ ens_annotate_loci(
   end_col = NULL,
   max_dist = 0,
   nonoverlap = c("closest", "all_within"),
-  add_cols = .ENS_ATTR_COLS,
+  add_cols = "default",
   sep = "; ",
   inner_sep = ",",
   na_string = NULL,
@@ -39,8 +39,9 @@ locus. Default \code{0} (overlap only).}
 \item{nonoverlap}{\code{"closest"} (default) reports the nearest gene(s) when
 nothing overlaps; \code{"all_within"} reports all genes within \code{max_dist}.}
 
-\item{add_cols}{Annotation columns to report; same default and options as
-in \code{\link[=ens_annotate_regions]{ens_annotate_regions()}}.}
+\item{add_cols}{Annotation columns to report; same keyword \code{"default"} and
+options as in \code{\link[=ens_annotate_regions]{ens_annotate_regions()}}, e.g.
+\code{add_cols = c("default", "transcript_mane_select")}.}
 
 \item{sep}{Separator between genes in the output (default \code{"; "}).}
 
@@ -114,6 +115,10 @@ ens_annotate_loci(loci, ann, "chr", "pos", max_dist = 1000,
 ens_annotate_loci(loci, ann, "chr", "pos", max_dist = 10000,
                   nonoverlap = "all_within",
                   add_cols = c("custom_gene_name", "gene_biotype"))
+
+# default columns plus MANE Select, without typing out the defaults
+ens_annotate_loci(loci, ann, "chr", "pos", max_dist = 1000,
+                  add_cols = c("default", "transcript_mane_select"))
 
 # loci that are intervals
 loci2 <- data.frame(chr = "1", from = 4900, to = 6100)

@@ -1,7 +1,7 @@
 Package: ensannot
 Type: Package
 Title: Ensembl Gene Annotation Without 'biomaRt'
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: c(
     person(
       "Ankit", "Hinsu",

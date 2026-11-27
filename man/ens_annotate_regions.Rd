@@ -10,7 +10,7 @@ ens_annotate_regions(
   chr_col,
   start_col,
   end_col,
-  add_cols = .ENS_ATTR_COLS,
+  add_cols = "default",
   min_overlap = 1,
   sep = "; ",
   inner_sep = ",",
@@ -29,11 +29,15 @@ delimited file.}
 \item{chr_col, start_col, end_col}{Names of the columns of \code{x} holding
 chromosome, region start and region end.}
 
-\item{add_cols}{Annotation columns to report. Default: \code{ensembl_gene_id},
-\code{external_gene_name}, \code{custom_gene_name}, \code{description},
-\code{external_synonym}, \code{gene_biotype}, \code{entrezgene_id},
-\code{ensembl_transcript_id}. Gene coordinates (\code{chromosome_name},
-\code{start_position}, \code{end_position}, \code{strand}) can be added here too.}
+\item{add_cols}{Annotation columns to report. Only the columns listed are
+returned. The keyword \code{"default"} stands for the default set:
+\code{ensembl_gene_id}, \code{external_gene_name}, \code{custom_gene_name},
+\code{description}, \code{external_synonym}, \code{gene_biotype}, \code{entrezgene_id},
+\code{ensembl_transcript_id}. Use it to extend the defaults without typing them
+out, e.g. \code{add_cols = c("default", "transcript_mane_select", "start_position")} (a column listed twice is returned once). The MANE
+columns (see \link{ens_annot}) and the gene coordinates (\code{chromosome_name},
+\code{start_position}, \code{end_position}, \code{strand}) are not part of \code{"default"};
+add them explicitly.}
 
 \item{min_overlap}{Minimum overlap in bp for a gene to count (default \code{1},
 i.e. any overlap).}
@@ -148,6 +152,10 @@ ens_annotate_regions(regions, ann, "chr", "start", "end",
 ens_annotate_regions(regions, ann, "chr", "start", "end",
                      add_cols = c("custom_gene_name", "external_synonym"),
                      min_overlap = 1000, na_string = "NA")$regions
+
+# default columns plus extras, without typing out the defaults
+ens_annotate_regions(regions, ann, "chr", "start", "end",
+                     add_cols = c("default", "transcript_mane_select"))$regions
 
 # include gene coordinates in the regions table, change separators
 ens_annotate_regions(regions, ann, "chr", "start", "end",
