@@ -521,6 +521,7 @@ Bug reports and suggestions are welcome via
 
 ## Updates
 v 0.1.0 : Initial release
+
 v 0.1.1 : Support for MANE select transcript added
 
 ## Citation
